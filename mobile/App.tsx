@@ -17,6 +17,8 @@ import {
   View,
 } from 'react-native';
 
+import {Button} from 'react-native';
+
 import {
   Colors,
   DebugInstructions,
@@ -24,6 +26,45 @@ import {
   LearnMoreLinks,
   ReloadInstructions,
 } from 'react-native/Libraries/NewAppScreen';
+
+import BackgroundService from 'react-native-background-actions';
+
+import notifee from '@notifee/react-native';
+
+const sleep = (time: number) =>
+  new Promise<void>(resolve => setTimeout(() => resolve(), time));
+
+const taskRandom = async (taskDataArguments: any) => {
+  const {delay} = taskDataArguments;
+  await new Promise(async () => {
+    for (let i = 0; BackgroundService.isRunning(); i++) {
+      console.log(i);
+      const response = await fetch('http://192.168.0.156:3000/api/getValue');
+      //@ts-ignore
+      const data = await response.json();
+      console.log('data = ', data);
+      onDisplayNotification(data);
+      await sleep(delay);
+    }
+  });
+};
+
+const options = {
+  taskName: 'taskRandom',
+  taskTitle: 'Background task',
+  taskDesc: 'Fetching data from API',
+  taskIcon: {
+    name: 'ic_launcher',
+    type: 'mipmap',
+  },
+  color: '#ff00ff',
+  parameters: {
+    delay: 5000,
+    prevValue: 'abc',
+  },
+};
+
+BackgroundService.start(taskRandom, options);
 
 type SectionProps = PropsWithChildren<{
   title: string;
@@ -55,6 +96,31 @@ function Section({children, title}: SectionProps): JSX.Element {
   );
 }
 
+async function onDisplayNotification(data: string) {
+  // Request permissions (required for iOS)
+  // Not actually needed for RoboSats, but leaving here for when we have an iOS app one day
+  await notifee.requestPermission();
+
+  // Create a channel (required for Android)
+  const channelId = await notifee.createChannel({
+    id: 'robosats-order-pn',
+    name: 'Default Channel',
+  });
+
+  // Display a notification
+  await notifee.displayNotification({
+    title: 'RoboSats Order Update',
+    body: `Your order result is ${data}`,
+    android: {
+      channelId,
+      // pressAction is needed if you want the notification to open the app when pressed
+      pressAction: {
+        id: 'default',
+      },
+    },
+  });
+}
+
 function App(): JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
 
@@ -76,7 +142,11 @@ function App(): JSX.Element {
           style={{
             backgroundColor: isDarkMode ? Colors.black : Colors.white,
           }}>
-          <Section title="Step One">
+          <Button
+            title="Push Notification on Press"
+            onPress={() => onDisplayNotification()}
+          />
+          <Section title="Step Onsse">
             Edit <Text style={styles.highlight}>App.tsx</Text> to change this
             screen and then come back to see your edits.
           </Section>
